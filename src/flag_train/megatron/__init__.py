@@ -4,14 +4,11 @@ from flag_train.runtime import device as runtime_device
 from flag_train.runtime.backend import SpecOpRegistrar
 
 from .fast_gelu import fast_gelu
-from .quick_gelu import quick_gelu
-
-__all__ = [
-    "fast_gelu",
 from .fused_indices_to_multihot import fused_indices_to_multihot
 from .quick_gelu import quick_gelu
 
 __all__ = [
+    "fast_gelu",
     "fused_indices_to_multihot",
     "quick_gelu",
 ]

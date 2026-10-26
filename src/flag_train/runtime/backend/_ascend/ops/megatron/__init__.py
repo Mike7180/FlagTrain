@@ -24,8 +24,10 @@ To specialise an operator, define it under this package, re-export it here
 overrides.
 """
 
+from .fast_gelu import fast_gelu
 from .fused_indices_to_multihot import fused_indices_to_multihot
 
 __all__ = [
+    "fast_gelu",
     "fused_indices_to_multihot",
 ]
