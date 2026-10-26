@@ -8,8 +8,12 @@ from .quick_gelu import quick_gelu
 
 __all__ = [
     "fast_gelu",
+from .fused_indices_to_multihot import fused_indices_to_multihot
+from .quick_gelu import quick_gelu
+
+__all__ = [
+    "fused_indices_to_multihot",
     "quick_gelu",
 ]
-
 
 SpecOpRegistrar(registry=globals(), vendor=runtime_device.vendor_name).apply()
