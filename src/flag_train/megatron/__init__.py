@@ -3,9 +3,11 @@
 from flag_train.runtime import device as runtime_device
 from flag_train.runtime.backend import SpecOpRegistrar
 
+from .fast_gelu import fast_gelu
 from .quick_gelu import quick_gelu
 
 __all__ = [
+    "fast_gelu",
     "quick_gelu",
 ]
 
