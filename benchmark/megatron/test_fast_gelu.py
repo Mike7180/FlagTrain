@@ -50,8 +50,6 @@ def fast_gelu_ref(x):
 def base_op():
     try:
         import megatron.core.activations
-
-        return megatron.core.activations.fast_gelu
     except ImportError:
         warnings.warn(
             "Megatron-LM is unavailable; using the PyTorch Fast GELU "
@@ -60,6 +58,28 @@ def base_op():
             stacklevel=2,
         )
         return fast_gelu_ref
+
+    compiled = megatron.core.activations.fast_gelu
+    eager = getattr(compiled, "__wrapped__", compiled)
+    chosen = compiled
+
+    def reference(*args, **kwargs):
+        nonlocal chosen
+        if chosen is eager:
+            return eager(*args, **kwargs)
+        try:
+            return chosen(*args, **kwargs)
+        except Exception:
+            warnings.warn(
+                "Megatron fast_gelu failed to compile on this platform; "
+                "falling back to its eager implementation",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            chosen = eager
+            return eager(*args, **kwargs)
+
+    return reference
 
 
 def _dtypes():
