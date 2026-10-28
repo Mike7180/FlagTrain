@@ -11,10 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Ascend fast GELU.
+"""Ascend fast GELU (forward only).
 
 Same math as ``flag_train.megatron.fast_gelu``; the kernels cap the grid at
-Ascend's ``coreDim`` limit and stride over several blocks per program.
+Ascend's ``coreDim`` limit and stride over several blocks per program. No
+backward is provided; a backward operator is expected to be contributed
+separately.
 """
 
 import logging
@@ -66,73 +68,15 @@ def fast_gelu_kernel(x_ptr, out_ptr, n, n_blocks, BLOCK: tl.constexpr):
         tl.store(out_ptr + offsets, out.to(out_ptr.dtype.element_ty), mask=mask)
 
 
-@libentry()
-@triton.jit
-def fast_gelu_backward_kernel(
-    grad_out_ptr, x_ptr, grad_x_ptr, n, n_blocks, BLOCK: tl.constexpr
-):
-    num_programs = tl.num_programs(0)
-    for pid in range(tle.program_id(0), n_blocks, num_programs):
-        offsets = pid * BLOCK + tl.arange(0, BLOCK)
-        mask = offsets < n
-        x = tl.load(x_ptr + offsets, mask=mask, other=0.0).to(tl.float32)
-        grad_out = tl.load(grad_out_ptr + offsets, mask=mask, other=0.0).to(tl.float32)
-        a = 0.044715
-        c = 0.7978845608
-        t = tl_extra_shim.tanh(c * x * (1 + a * x * x))
-        grad_x = grad_out * (
-            0.5 * (1 + t) + 0.5 * x * (1 - t * t) * c * (1 + 3 * a * x * x)
-        )
-        tl.store(
-            grad_x_ptr + offsets, grad_x.to(grad_x_ptr.dtype.element_ty), mask=mask
-        )
-
-
-class FastGELU(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, x):
-        _check_input(x, "fast_gelu", _FAST_GELU_DTYPES)
-        ctx.save_for_backward(x)
-        if x.numel() == 0:
-            return torch.empty_like(x)
-        x_flat = x.contiguous().view(-1)
-        out = torch.empty_like(x_flat)
-        n_blocks = triton.cdiv(x.numel(), BLOCK)
-        grid = (min(n_blocks, _MAX_GRID),)
-        with torch_device_fn.device(x.device):
-            fast_gelu_kernel[grid](x_flat, out, x.numel(), n_blocks, BLOCK=BLOCK)
-        return out.view_as(x)
-
-    @staticmethod
-    def backward(ctx, grad_out):
-        logger.debug("TRAIN_ASCEND FAST_GELU_BACKWARD")
-        (x,) = ctx.saved_tensors
-        _check_input(x, "fast_gelu", _FAST_GELU_DTYPES)
-        _check_input(grad_out, "fast_gelu grad", _FAST_GELU_DTYPES)
-        if grad_out.shape != x.shape or grad_out.dtype != x.dtype:
-            raise ValueError(
-                f"fast_gelu grad needs the same shape and dtype as the input, got "
-                f"{tuple(grad_out.shape)} {grad_out.dtype} for "
-                f"{tuple(x.shape)} {x.dtype}"
-            )
-        if x.numel() == 0:
-            return torch.empty_like(x)
-
-        x_flat = x.contiguous().view(-1)
-        grad_out_flat = grad_out.contiguous().view(-1)
-        n = x_flat.numel()
-
-        grad_x = torch.empty_like(x_flat)
-        n_blocks = triton.cdiv(n, BLOCK)
-        grid = (min(n_blocks, _MAX_GRID),)
-        with torch_device_fn.device(x.device):
-            fast_gelu_backward_kernel[grid](
-                grad_out_flat, x_flat, grad_x, n, n_blocks, BLOCK=BLOCK
-            )
-        return grad_x.view(x.shape)
-
-
 def fast_gelu(x):
     logger.debug("TRAIN_ASCEND FAST_GELU")
-    return FastGELU.apply(x)
+    _check_input(x, "fast_gelu", _FAST_GELU_DTYPES)
+    if x.numel() == 0:
+        return torch.empty_like(x)
+    x_flat = x.contiguous().view(-1)
+    out = torch.empty_like(x_flat)
+    n_blocks = triton.cdiv(x.numel(), BLOCK)
+    grid = (min(n_blocks, _MAX_GRID),)
+    with torch_device_fn.device(x.device):
+        fast_gelu_kernel[grid](x_flat, out, x.numel(), n_blocks, BLOCK=BLOCK)
+    return out.view_as(x)

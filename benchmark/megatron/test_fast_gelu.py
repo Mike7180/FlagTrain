@@ -107,13 +107,12 @@ def fast_gelu_input_fn(shape, dtype, device):
     yield (torch.randn(shape, dtype=dtype, device=device),)
 
 
-def _run(is_backward):
+def _run():
     bench = FastGeluBenchmark(
         input_fn=fast_gelu_input_fn,
-        op_name="fast_gelu_backward" if is_backward else "fast_gelu",
+        op_name="fast_gelu",
         torch_op=base_op(),
         dtypes=_dtypes(),
-        is_backward=is_backward,
     )
     bench.set_train(flag_train.megatron.fast_gelu)
     bench.run()
@@ -121,9 +120,4 @@ def _run(is_backward):
 
 @pytest.mark.fast_gelu
 def test_fast_gelu_perf():
-    _run(is_backward=False)
-
-
-@pytest.mark.fast_gelu
-def test_fast_gelu_backward_perf():
-    _run(is_backward=True)
+    _run()
