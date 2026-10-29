@@ -13,8 +13,9 @@
 # limitations under the License.
 """Ascend fast GELU (forward only).
 
-Same math as ``flag_train.megatron.fast_gelu``; the kernels cap the grid at
-Ascend's ``coreDim`` limit and stride over several blocks per program. No
+Same math as ``flag_train.megatron.fast_gelu``; the kernel is persistent, one
+program per vector core, and each program strides over several blocks, so the
+grid also stays below Ascend's ``coreDim`` limit. No
 backward is provided; a backward operator is expected to be contributed
 separately.
 """
@@ -27,16 +28,16 @@ import triton.language as tl
 
 from flag_train.runtime import device as runtime_device
 from flag_train.runtime import torch_device_fn
+from flag_train.runtime.backend._ascend.utils import CORE_NUM
 from flag_train.utils import libentry, tl_extra_shim
 from flag_train.utils import triton_lang_extension as tle
 
 logger = logging.getLogger(__name__)
 
 BLOCK = 1024
-# Ascend rejects kernel launches with coreDim > 65535, so cap the grid and let
-# each program stride over several blocks: the core benchmark shapes need
-# 131072 and 352256 programs otherwise.
-_MAX_GRID = 65535
+# One program per vector core: the kernel strides over the remaining blocks, so
+# the grid stays below Ascend's coreDim limit (the core benchmark shapes need
+# 131072 and 352256 blocks otherwise).
 _FAST_GELU_DTYPES = (torch.float16, torch.bfloat16, torch.float32)
 
 
@@ -76,7 +77,7 @@ def fast_gelu(x):
     x_flat = x.contiguous().view(-1)
     out = torch.empty_like(x_flat)
     n_blocks = triton.cdiv(x.numel(), BLOCK)
-    grid = (min(n_blocks, _MAX_GRID),)
+    grid = (min(n_blocks, CORE_NUM),)
     with torch_device_fn.device(x.device):
         fast_gelu_kernel[grid](x_flat, out, x.numel(), n_blocks, BLOCK=BLOCK)
     return out.view_as(x)
