@@ -11,6 +11,7 @@ from .fused_proj_rms_backward import fused_proj_rms_backward
 from .fused_proj_rms_compute_h_backward import fused_proj_rms_compute_h_backward
 from .fused_proj_rms_compute_h_forward import fused_proj_rms_compute_h_forward
 from .fused_proj_rms_forward import fused_proj_rms_forward
+from .quick_geglu import quick_geglu
 from .quick_gelu import quick_gelu
 from .scaled_masked_softmax_cuda_backward import scaled_masked_softmax_cuda_backward
 from .scaled_masked_softmax_cuda_forward import scaled_masked_softmax_cuda_forward
@@ -31,6 +32,7 @@ __all__ = [
     "fused_proj_rms_compute_h_backward",
     "fused_proj_rms_compute_h_forward",
     "fused_proj_rms_forward",
+    "quick_geglu",
     "quick_gelu",
     "scaled_masked_softmax_cuda_backward",
     "scaled_masked_softmax_cuda_forward",
