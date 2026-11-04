@@ -49,6 +49,26 @@ _SHAPES = [
     (4, 8, 32, 16),
 ]
 
+_COMPILE_BUDGET = 256
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _full_compile_budget():
+    config = torch._dynamo.config
+    names = [
+        name
+        for name in ("recompile_limit", "cache_size_limit")
+        if hasattr(config, name)
+    ]
+    saved = {name: getattr(config, name) for name in names}
+    for name in names:
+        setattr(config, name, max(saved[name], _COMPILE_BUDGET))
+    try:
+        yield
+    finally:
+        for name, value in saved.items():
+            setattr(config, name, value)
+
 
 def quick_geglu_ref(y, linear_offset=0.0):
     y_1, y_2 = torch.chunk(y, 2, dim=-1)
