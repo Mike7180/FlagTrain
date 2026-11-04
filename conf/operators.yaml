@@ -243,6 +243,20 @@ ops:
   - Tensor
   stages:
   - beta: '0.0.0'
+- id: quick_geglu
+  description: 'Quick-GEGLU activation: quick_gelu(y1) * (y2 + linear_offset).'
+  for:
+  - quick_geglu
+  labels:
+  - megatron
+  - activation
+  from:
+  - megatron
+  kind:
+  - Activation
+  source: megatron.core.fusions.fused_bias_geglu
+  stages:
+  - beta: '0.0.0'
 - id: quick_gelu
   description: 'QuickGELU activation: x * sigmoid(1.702 * x).'
   for:
