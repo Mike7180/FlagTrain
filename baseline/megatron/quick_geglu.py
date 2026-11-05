@@ -23,6 +23,8 @@ torch composition. Shapes and dtypes are copied from
 ``FlagTrain/benchmark/megatron/test_quick_geglu.py``.
 """
 
+import math
+
 import torch
 
 OP_NAME = "quick_geglu"
@@ -78,3 +80,27 @@ def build_inputs(binding, dtype, device):
 
 def key_shape(binding):
     return list(binding["shape"])
+
+
+def config(binding, dtype):
+    """Describe the real inputs/outputs for baseline matching."""
+    shape = list(binding["shape"])
+    hidden = shape[-1]
+    dtype_str = str(dtype)
+    return {
+        "inputs": {
+            "y": {"shape": shape, "dtype": dtype_str},
+            # The benchmark calls quick_geglu(y); linear_offset keeps its default.
+            "linear_offset": {"scalar": 0.0},
+        },
+        "outputs": {
+            # The forward splits the last dimension in half: 2 * d -> d.
+            "out": {"shape": shape[:-1] + [hidden // 2], "dtype": dtype_str},
+        },
+        "dims": {
+            "num_tokens": math.prod(shape[:-1]),
+            "hidden": hidden,
+            "d": hidden // 2,
+            "shape": shape,
+        },
+    }
