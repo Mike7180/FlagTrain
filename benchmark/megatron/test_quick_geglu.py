@@ -77,25 +77,23 @@ def base_op():
         )
         return quick_geglu_ref
 
-    compiled = quick_geglu
-    eager = getattr(compiled, "__wrapped__", compiled)
-    chosen = compiled
+    chosen = quick_geglu
 
     def reference(*args, **kwargs):
         nonlocal chosen
-        if chosen is eager:
-            return eager(*args, **kwargs)
+        if chosen is quick_geglu_ref:
+            return chosen(*args, **kwargs)
         try:
             return chosen(*args, **kwargs)
         except Exception:
             warnings.warn(
                 "Megatron quick_geglu failed to compile on this platform; "
-                "falling back to its eager implementation",
+                "falling back to the PyTorch Quick GEGLU composition",
                 RuntimeWarning,
                 stacklevel=2,
             )
-            chosen = eager
-            return eager(*args, **kwargs)
+            chosen = quick_geglu_ref
+            return chosen(*args, **kwargs)
 
     return reference
 
