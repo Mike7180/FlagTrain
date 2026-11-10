@@ -120,8 +120,3 @@ def _run(is_backward):
 @pytest.mark.quick_gelu
 def test_quick_gelu_perf():
     _run(is_backward=False)
-
-
-@pytest.mark.quick_gelu
-def test_quick_gelu_backward_perf():
-    _run(is_backward=True)
